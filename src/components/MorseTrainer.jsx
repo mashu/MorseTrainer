@@ -144,12 +144,18 @@ const MorseTrainer = () => {
     // Set the new notification
     setNotification({ message, color });
 
-    // Schedule its removal after duration
-    notificationTimeoutRef.current = setTimeout(() => {
-      setNotification(null);
-      notificationTimeoutRef.current = null;
-    }, duration);
-  }, []);
+    // For waiting notifications in infinite delay mode, don't auto-dismiss
+    const isWaitingNotification = message.includes('waiting for your answer') && infiniteDelayEnabled;
+    
+    if (!isWaitingNotification) {
+      // Schedule its removal after duration for regular notifications
+      notificationTimeoutRef.current = setTimeout(() => {
+        setNotification(null);
+        notificationTimeoutRef.current = null;
+      }, duration);
+    }
+    // For waiting notifications, we'll clear them when the user submits their answer
+  }, [infiniteDelayEnabled]);
 
   // Then define updatePerformanceData function
   const updatePerformanceData = useCallback((isCorrect, level) => {
@@ -221,7 +227,7 @@ const MorseTrainer = () => {
 
     // If infinite delay is enabled, don't mark as incorrect but pause for user input
     if (infiniteDelayEnabled) {
-      showNotification(`Max repeats (${maxRepeats}) reached - waiting for your answer`, 'yellow');
+      showNotification(`Max repeats (${maxRepeats}) reached - waiting for your answer`, 'yellow', 10000); // Longer duration
       // Keep isPlaying true but put system in a "waiting" state
       // The user can still type their answer
       return;
@@ -473,7 +479,10 @@ const MorseTrainer = () => {
   };
 
   const handleCharacterInput = useCallback((char) => {
-    if (!isPlaying || notification) return;
+    // Allow input if we're in infinite delay mode, even with a notification
+    const isInfiniteDelayWaiting = infiniteDelayEnabled && isPlaying && notification?.message?.includes('waiting for your answer');
+    
+    if ((!isPlaying || (notification && !isInfiniteDelayWaiting))) return;
 
     if (char === '\u232B') {
       handleCharacterRemoved();
@@ -482,6 +491,13 @@ const MorseTrainer = () => {
 
     const newInput = userInput + char;
     setUserInput(newInput);
+
+    // Clear the waiting notification if we're in infinite delay mode
+    if (isInfiniteDelayWaiting && notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+      setNotification(null);
+    }
 
     const handleWrong = () => {
       setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
@@ -553,7 +569,7 @@ const MorseTrainer = () => {
     isPlaying, userInput, currentGroup, consecutiveCorrect, advanceThreshold,
     currentLevel, notification, updateLevelAndSpeed, currentPreset, progressiveSpeedMode,
     wpm, showNotification, startNewGroup, updatePerformanceData, transitionDelay,
-    radioNoiseEnabled, minLevelThreshold, isLevelLocked
+    radioNoiseEnabled, minLevelThreshold, isLevelLocked, infiniteDelayEnabled
   ]);
 
   const handleCharacterRemoved = () => {
@@ -562,7 +578,10 @@ const MorseTrainer = () => {
   };
 
   const handleKeyPress = useCallback((e) => {
-    if (!isPlaying || notification) return;
+    // Allow input if we're in infinite delay mode, even with a notification
+    const isInfiniteDelayWaiting = infiniteDelayEnabled && isPlaying && notification?.message?.includes('waiting for your answer');
+    
+    if ((!isPlaying || (notification && !isInfiniteDelayWaiting))) return;
 
     const key = e.key.toUpperCase();
     if (key === "BACKSPACE") {
@@ -578,7 +597,7 @@ const MorseTrainer = () => {
     } else {
       handleCharacterInput(key);
     }
-  }, [isPlaying, handleCharacterInput, notification, currentLevel, currentPreset]);
+  }, [isPlaying, handleCharacterInput, notification, currentLevel, currentPreset, infiniteDelayEnabled]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);

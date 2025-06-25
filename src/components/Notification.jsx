@@ -76,6 +76,9 @@ export const Notification = ({ message, color = 'blue', onDismiss }) => {
     gray: 'bg-gray-400'
   };
 
+  // Check if this is a waiting notification
+  const isWaitingNotification = typeof message === 'string' && message.includes('waiting for your answer');
+
   return (
     <div
       className={`bg-gradient-to-r ${colors[color] || colors.blue}
@@ -83,6 +86,7 @@ export const Notification = ({ message, color = 'blue', onDismiss }) => {
         backdrop-blur-sm animate-notification-fade-in relative
         transition-opacity duration-200 overflow-hidden pointer-events-none
         ${isVisible ? 'opacity-90' : 'opacity-0'}`}
+      data-notification-type={isWaitingNotification ? 'waiting' : 'standard'}
     >
       <div className="text-base font-medium text-center break-words mb-2">
         {message}
